@@ -16,10 +16,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -29,6 +26,8 @@ public class PluginManager {
     private static final Map<Priority, Map<String, Plugin>> plugins = new HashMap<>();
     private static final RouteManager routeManager = new RouteManager();
     private static final ListenerManager listenerManager = new ListenerManager();
+
+    private static Response fallbackResponse = new JSONResponse("{\"error\": \"Not found\"}", Status.NOT_FOUND);
 
     public static void onEnable() {
         processPriority(Priority.HIGHEST, plugins -> plugins.values().forEach(Plugin::onEnable));
@@ -47,7 +46,7 @@ public class PluginManager {
     }
 
     public static Response onMessage(Request request) {
-        Response currentResponse = new JSONResponse("{\"error\": \"Not found\"}", Status.NOT_FOUND);
+        Response currentResponse = fallbackResponse;
         for (Map.Entry<String, RouteHandler> entry : routeManager.getRoutes().entrySet()) {
             if (request.path().equalsIgnoreCase(entry.getKey())) {
                 currentResponse = entry.getValue().handle(request);
@@ -67,6 +66,10 @@ public class PluginManager {
 
     public static ListenerManager getListenerManager() {
         return listenerManager;
+    }
+
+    public static void setFallbackResponse(Response response) {
+        fallbackResponse = response;
     }
 
     private static void registerPlugin(String name, Plugin plugin) {
@@ -136,6 +139,7 @@ public class PluginManager {
         Enumeration<JarEntry> entries = jar.entries();
         while (entries.hasMoreElements()) {
             JarEntry entry = entries.nextElement();
+            if (entry.getName().contains("module-info.class")) continue;
             if (entry.getName().endsWith(".class")) {
                 String className = entry.getName().replace('/', '.').replace(".class", "");
                 classLoader.loadClass(className);

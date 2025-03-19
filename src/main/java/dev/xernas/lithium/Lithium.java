@@ -1,11 +1,8 @@
 package dev.xernas.lithium;
 
 import dev.xernas.lithium.io.*;
-import dev.xernas.lithium.io.http.Status;
 import dev.xernas.lithium.plugin.PluginManager;
 import dev.xernas.lithium.request.Request;
-import dev.xernas.lithium.response.JSONResponse;
-import dev.xernas.lithium.response.PlainResponse;
 import dev.xernas.lithium.response.Response;
 import dev.xernas.particle.Particle;
 import dev.xernas.particle.client.Client;
