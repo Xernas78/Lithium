@@ -1,24 +1,24 @@
 package dev.xernas.lithium.response;
 
-import dev.xernas.lithium.io.http.Status;
 import dev.xernas.lithium.io.headers.ContentType;
 import dev.xernas.lithium.io.headers.Header;
+import dev.xernas.lithium.io.http.Status;
 
 import java.util.List;
 
-public class JSONResponse implements Response {
+public class HTMLResponse implements Response {
 
-    private final String body;
+    private final String html;
     private final Status status;
 
-    public JSONResponse(String body, Status status) {
-        this.body = body;
+    public HTMLResponse(String html, Status status) {
+        this.html = html;
         this.status = status;
     }
 
     @Override
     public ContentType getContentType() {
-        return ContentType.APPLICATION_JSON;
+        return ContentType.TEXT_HTML;
     }
 
     @Override
@@ -28,7 +28,7 @@ public class JSONResponse implements Response {
 
     @Override
     public byte[] getBody() {
-        return body.getBytes(ContentType.APPLICATION_JSON.getCharset());
+        return html.getBytes();
     }
 
     @Override

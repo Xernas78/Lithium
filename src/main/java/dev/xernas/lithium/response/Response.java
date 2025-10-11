@@ -12,7 +12,7 @@ public interface Response {
 
     List<Header> getHeaders();
 
-    String getBody();
+    byte[] getBody();
 
     Status getStatus();
 

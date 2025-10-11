@@ -1,6 +1,8 @@
 package dev.xernas.lithium.plugin;
 
+import dev.xernas.lithium.Lithium;
 import dev.xernas.lithium.io.http.Status;
+import dev.xernas.lithium.plugin.commands.CommandManager;
 import dev.xernas.lithium.plugin.listeners.ListenerManager;
 import dev.xernas.lithium.plugin.routes.RouteHandler;
 import dev.xernas.lithium.plugin.routes.RouteManager;
@@ -24,8 +26,14 @@ import java.util.jar.JarFile;
 public class PluginManager {
 
     private static final Map<Priority, Map<String, Plugin>> plugins = new HashMap<>();
-    private static final RouteManager routeManager = new RouteManager();
-    private static final ListenerManager listenerManager = new ListenerManager();
+    private static final Map<Plugin, String> pluginNames = new HashMap<>();
+
+    private static final Map<Plugin, RouteManager> routeManagers = new HashMap<>();
+    private static final Map<Plugin, ListenerManager> listenerManagers = new HashMap<>();
+
+    private static final CommandManager commandManager = new CommandManager();
+
+    private static Lithium serverInstance;
 
     private static Response fallbackResponse = new JSONResponse("{\"error\": \"Not found\"}", Status.NOT_FOUND);
 
@@ -47,29 +55,80 @@ public class PluginManager {
 
     public static Response onMessage(Request request) {
         Response currentResponse = fallbackResponse;
-        for (Map.Entry<String, RouteHandler> entry : routeManager.getRoutes().entrySet()) {
-            if (request.path().equalsIgnoreCase(entry.getKey())) {
-                currentResponse = entry.getValue().handle(request);
+        for (Plugin plugin : pluginNames.keySet()) {
+            RouteManager routeManager = routeManagers.computeIfAbsent(plugin, p -> new RouteManager());
+            ListenerManager listenerManager = listenerManagers.computeIfAbsent(plugin, p -> new ListenerManager());
+            listenerManager.getListeners().forEach(listener -> listener.onRequest(request));
+            for (Map.Entry<String, RouteHandler> entry : new ArrayList<>(routeManager.getRoutes().entrySet())) {
+                if (request.path().equalsIgnoreCase(entry.getKey())) {
+                    currentResponse = entry.getValue().handle(request);
+                }
             }
         }
-        listenerManager.getListeners().forEach(listener -> listener.onRequest(request));
         return currentResponse;
     }
 
     public static void onResponse(Response response) {
-        listenerManager.getListeners().forEach(listener -> listener.onResponse(response));
+        for (Plugin plugin : pluginNames.keySet()) {
+            ListenerManager listenerManager = listenerManagers.computeIfAbsent(plugin, p -> new ListenerManager());
+            listenerManager.getListeners().forEach(listener -> listener.onResponse(response));
+        }
     }
 
-    public static RouteManager getRouteManager() {
-        return routeManager;
+    public static RouteManager getRouteManager(Plugin plugin) {
+        return routeManagers.computeIfAbsent(plugin, p -> new RouteManager());
     }
 
-    public static ListenerManager getListenerManager() {
-        return listenerManager;
+    public static ListenerManager getListenerManager(Plugin plugin) {
+        return listenerManagers.computeIfAbsent(plugin, p -> new ListenerManager());
+    }
+
+    public static CommandManager getCommandManager() {
+        return commandManager;
     }
 
     public static void setFallbackResponse(Response response) {
         fallbackResponse = response;
+    }
+
+    public static void setServerInstance(Lithium instance) {
+        serverInstance = instance;
+    }
+
+    public static Lithium getServer() {
+        if (serverInstance == null) throw new IllegalStateException("Server instance not set");
+        return serverInstance;
+    }
+
+    public static Path getPluginDataFolder(Plugin plugin) {
+        return getPluginDataFolder(getPluginName(plugin));
+    }
+
+    public static Path getPluginDataFolder(String pluginName) {
+        if (pluginName == null || pluginName.isEmpty()) throw new IllegalArgumentException("Plugin name cannot be null or empty");
+        if (getPlugin(pluginName) == null) throw new IllegalArgumentException("Plugin " + pluginName + " is not registered");
+        Path pluginsPath = Lithium.PLUGINS_PATH;
+        if (!pluginsPath.toFile().exists()) {
+            if (!pluginsPath.toFile().mkdirs()) {
+                throw new RuntimeException("Could not create plugins folder");
+            }
+        }
+        Path pluginPath = pluginsPath.resolve(pluginName);
+        if (!pluginPath.toFile().exists()) {
+            if (!pluginPath.toFile().mkdirs()) {
+                throw new RuntimeException("Could not create plugin data folder for " + pluginName);
+            }
+        }
+        return pluginPath;
+    }
+
+    public static Plugin getPlugin(String name) {
+        for (Map<String, Plugin> pluginMap : plugins.values()) if (pluginMap.containsKey(name)) return pluginMap.get(name);
+        return null;
+    }
+
+    public static String getPluginName(Plugin plugin) {
+        return pluginNames.get(plugin);
     }
 
     private static void registerPlugin(String name, Plugin plugin) {
@@ -77,6 +136,7 @@ public class PluginManager {
         if (plugins == null) plugins = new HashMap<>();
         plugins.put(name, plugin);
         PluginManager.plugins.put(plugin.getPriority(), plugins);
+        PluginManager.pluginNames.put(plugin, name);
     }
 
     public static void findPlugins(Path path) {
@@ -95,6 +155,7 @@ public class PluginManager {
             try {
                 loadPlugin(jarFile);
             } catch (Exception e) {
+                System.err.println("Failed to load plugin " + jarFile.getName());
                 e.printStackTrace();
             }
         }

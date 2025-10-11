@@ -1,6 +1,7 @@
 package dev.xernas.lithium;
 
 
+import dev.xernas.lithium.plugin.PluginManager;
 import dev.xernas.particle.server.exceptions.ServerException;
 
 public class Launcher {
@@ -16,6 +17,7 @@ public class Launcher {
         }
         try {
             Lithium server = new Lithium(port);
+            PluginManager.setServerInstance(server);
             server.listen();
         } catch (ServerException e) {
             throw new RuntimeException(e);

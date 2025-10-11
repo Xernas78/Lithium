@@ -47,6 +47,10 @@ public enum Header {
         return value;
     }
 
+    public boolean isSame(Header header) {
+        return name.equals(header.getName());
+    }
+
     @Override
     public String toString() {
         return name + ": " + valuesToString();

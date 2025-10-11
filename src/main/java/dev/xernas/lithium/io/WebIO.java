@@ -33,26 +33,33 @@ public class WebIO implements MessageIO<Request, Response> {
 
     @Override
     public void write(Response response, Particle particle) throws Particle.WriteException {
-        List<String> lines = new ArrayList<>();
-        List<Header> headers = new ArrayList<>();
+        // --- Build status line and headers ---
+        StringBuilder headerBuilder = new StringBuilder();
+        headerBuilder.append(Protocol.HTTP)
+                .append(" ")
+                .append(response.getStatus().getCode())
+                .append(" ")
+                .append(response.getStatus().getMessage())
+                .append("\r\n");
 
+        // Collect headers
+        List<Header> headers = new ArrayList<>();
         ContentType contentType = response.getContentType();
-        headers.add(Header.CONTENT_LENGTH.setValues(String.valueOf(response.getBody().getBytes(contentType.getCharset()).length)));
+        headers.add(Header.CONTENT_LENGTH.setValues(String.valueOf(response.getBody().length)));
         headers.add(contentType.getHeader());
         headers.addAll(response.getHeaders());
 
-        lines.add(Protocol.HTTP + " " + response.getStatus().getCode() + " " + response.getStatus().getMessage());
-        headers.forEach(header -> lines.add(header.toString()));
-        lines.add("");
-        lines.add(response.getBody());
-
-        writeLines(particle, lines);
-    }
-
-    private void writeLines(Particle particle, List<String> lines) throws Particle.WriteException {
-        for (String line : lines) {
-            particle.writeBytes((line + "\r\n").getBytes());
+        // Append headers
+        for (Header header : headers) {
+            headerBuilder.append(header.toString()).append("\r\n");
         }
+        headerBuilder.append("\r\n"); // blank line separating headers from body
+
+        // --- Write headers ---
+        particle.writeBytes(headerBuilder.toString().getBytes());
+
+        // --- Write raw body ---
+        particle.writeBytes(response.getBody());
         particle.flush();
     }
 

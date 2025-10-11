@@ -8,10 +8,11 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.rmi.ServerException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public record Request(Protocol protocol, Method method, String path,
-                      List<Header> headers) {
+                      List<Header> headers, String body) {
 
     public static Request parse(BufferedReader reader, String info) throws ServerException {
         try {
@@ -23,7 +24,9 @@ public record Request(Protocol protocol, Method method, String path,
             List<Header> headers = parseHeaders(reader);
             String path = parts[1];
 
-            return new Request(protocol, method, path, headers);
+            String body = parseBody(reader, headers);
+
+            return new Request(protocol, method, path, headers, body);
         } catch (IOException e) {
             throw new ServerException("Couldn't parse request", e);
         }
@@ -38,6 +41,21 @@ public record Request(Protocol protocol, Method method, String path,
             if (h != null) headers.add(h);
         }
         return headers;
+    }
+
+    private  static String parseBody(BufferedReader reader, List<Header> headers) throws IOException {
+        Header contentLengthHeader = headers.stream()
+                .filter(h -> h.isSame(Header.CONTENT_LENGTH))
+                .findFirst()
+                .orElse(null);
+        if (contentLengthHeader == null) {
+            return null;
+        }
+        int contentLength = Integer.parseInt(contentLengthHeader.getValue()[0]);
+
+        char[] bodyChars = new char[contentLength];
+        int read = reader.read(bodyChars, 0, contentLength);
+        return (read > 0) ? new String(bodyChars, 0, read) : null;
     }
 
     public Header getHeader(String name) {

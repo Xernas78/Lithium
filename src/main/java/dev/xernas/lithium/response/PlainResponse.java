@@ -25,8 +25,8 @@ public class PlainResponse implements Response {
     }
 
     @Override
-    public String getBody() {
-        return text;
+    public byte[] getBody() {
+        return text.getBytes(ContentType.TEXT_PLAIN.getCharset());
     }
 
     @Override

@@ -7,16 +7,19 @@ import dev.xernas.lithium.response.Response;
 import dev.xernas.particle.Particle;
 import dev.xernas.particle.client.Client;
 import dev.xernas.particle.message.MessageIO;
-import dev.xernas.particle.server.Server;
+import dev.xernas.particle.server.TCPServer;
 import dev.xernas.particle.server.exceptions.ServerException;
 import dev.xernas.particle.tasks.Task;
 import org.jetbrains.annotations.NotNull;
 
 
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 
-public class Lithium extends Server<Request, Response> {
+public class Lithium extends TCPServer<Request, Response> {
+
+    public static final Path PLUGINS_PATH = Paths.get("plugins");
 
     private static final Map<UUID, List<UUID>> sessions = new HashMap<>();
     private final int port;
@@ -42,7 +45,7 @@ public class Lithium extends Server<Request, Response> {
 
     @Override
     public void onServerStart() throws ServerException {
-        PluginManager.findPlugins(Paths.get("plugins"));
+        PluginManager.findPlugins(PLUGINS_PATH);
         PluginManager.onEnable();
     }
 
